@@ -5,6 +5,7 @@ import {firstValueFrom} from 'rxjs'
 import jwt, {SignOptions} from 'jsonwebtoken'
 import {AxiosResponse} from 'axios'
 import {GitHubAccessTokenResponse} from '../interfaces/github-access-token-response.interface'
+import {GITHUB_API_URL} from '../constants/github.constants'
 
 @Injectable()
 export class GithubAuthService {
@@ -46,7 +47,7 @@ export class GithubAuthService {
 
   private async generateNewToken(): Promise<string> {
     const appJwt = this.createAppJwt()
-    const url = `https://api.github.com/app/installations/${this.INSTALLATION_ID}/access_tokens`
+    const url = `${GITHUB_API_URL}/app/installations/${this.INSTALLATION_ID}/access_tokens`
 
     try {
       const response = await firstValueFrom<

@@ -29,6 +29,7 @@ export default [
       '@typescript-eslint/explicit-function-return-type': 'error',
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/naming-convention': [
         'error',
         {

@@ -2,6 +2,8 @@ import {Module} from '@nestjs/common'
 import {HttpModule} from '@nestjs/axios'
 import {GithubAuthService} from './domain/services/github-auth.service'
 import {GithubController} from './application/controllers/github.controller'
+import {GithubTool} from './domain/tools/github.tool'
+import {GithubService} from './domain/services/github.service'
 
 @Module({
   imports: [
@@ -11,7 +13,7 @@ import {GithubController} from './application/controllers/github.controller'
     }),
   ],
   controllers: [GithubController],
-  providers: [GithubAuthService],
+  providers: [GithubAuthService, GithubTool, GithubService],
   exports: [],
 })
 export class GithubModule {}
