@@ -13,6 +13,8 @@ import {GithubIssueResponse} from '../interfaces/github-issue-response.interface
 import {GITHUB_API_URL} from '../constants/github.constants'
 import {GithubPostCommentResponse} from '../interfaces/github-post-comment-response.interface'
 import {GithubPostComment} from '../interfaces/github-post-comment.interface'
+import {GithubAddLabels} from '../interfaces/github-add-labels.interface'
+import {GithubAddLabelsResponse} from '../interfaces/github-add-labels-response.interface'
 
 @Injectable()
 export class GithubTool {
@@ -109,6 +111,52 @@ export class GithubTool {
       )
       throw new InternalServerErrorException(
         'Could not post comment to GitHub.',
+      )
+    }
+  }
+
+  async addLabels(
+    owner: string,
+    repo: string,
+    issueNumber: number,
+    labels: string[],
+  ): Promise<GithubAddLabels> {
+    const token = await this.getGithubAuthToken()
+    const url = `${GITHUB_API_URL}/repos/${owner}/${repo}/issues/${issueNumber}/labels`
+
+    try {
+      const response = await firstValueFrom<
+        AxiosResponse<GithubAddLabelsResponse[]>
+      >(
+        this.httpService.post<GithubAddLabelsResponse[]>(
+          url,
+          {labels},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/vnd.github.v3+json',
+            },
+          },
+        ),
+      )
+
+      this.logger.log(
+        `Successfully applied labels to issue #${issueNumber} in ${owner}/${repo}`,
+      )
+      return {success: true, appliedLabels: response.data}
+    } catch (error) {
+      if (error.response?.status === 404) {
+        this.logger.error(`Issue #${issueNumber} not found in ${owner}/${repo}`)
+        throw new NotFoundException(
+          `Issue #${issueNumber} not found in ${owner}/${repo}`,
+        )
+      }
+      this.logger.error(
+        `Failed to apply labels to issue #${issueNumber}`,
+        error.stack,
+      )
+      throw new InternalServerErrorException(
+        'Could not apply labels to GitHub issue.',
       )
     }
   }
