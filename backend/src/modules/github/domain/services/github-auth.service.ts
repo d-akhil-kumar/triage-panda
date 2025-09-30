@@ -4,11 +4,7 @@ import {HttpService} from '@nestjs/axios'
 import {firstValueFrom} from 'rxjs'
 import jwt, {SignOptions} from 'jsonwebtoken'
 import {AxiosResponse} from 'axios'
-
-interface GitHubAccessTokenResponse {
-  token: string
-  expires_at: string
-}
+import {GitHubAccessTokenResponse} from '../interfaces/github-access-token-response.interface'
 
 @Injectable()
 export class GithubAuthService {
