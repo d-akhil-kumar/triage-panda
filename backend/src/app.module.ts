@@ -2,9 +2,10 @@ import {Module} from '@nestjs/common'
 import {AppController} from './app.controller'
 import {AppService} from './app.service'
 import {configModule} from './config'
+import {GithubModule} from './modules/github/github.module'
 
 @Module({
-  imports: [configModule],
+  imports: [configModule, GithubModule],
   controllers: [AppController],
   providers: [AppService],
 })
