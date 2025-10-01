@@ -8,7 +8,10 @@ import {ConfigService} from '@nestjs/config'
 const logger = new Logger('main.ts:bootstrap')
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule)
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: true,
+    rawBody: true,
+  })
 
   const configService = app.get(ConfigService)
   const port = configService.get<number>('app.port') || 3000
