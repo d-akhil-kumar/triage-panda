@@ -1,5 +1,10 @@
-import {BadRequestException, Injectable, Logger} from '@nestjs/common'
-import {GithubTool} from '../tools/github.tool'
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common'
 import {GithubIssue} from '../interfaces/github-issue.interface'
 import {GithubPostComment} from '../interfaces/github-post-comment.interface'
 import {GithubAddLabels} from '../interfaces/github-add-labels.interface'
@@ -7,17 +12,26 @@ import * as crypto from 'crypto'
 import {ConfigService} from '@nestjs/config'
 import {GithubWebhook} from '../interfaces/github-webhook.interface'
 import {GithubWebhookPayload} from '../interfaces/github-webhook-payload.interface'
+import {HttpService} from '@nestjs/axios'
+import {firstValueFrom} from 'rxjs'
+import {GithubAuthService} from '../services/github-auth.service'
+import {AxiosResponse} from 'axios'
+import {GithubIssueResponse} from '../interfaces/github-issue-response.interface'
+import {GITHUB_API_URL} from '../constants/github.constants'
+import {GithubPostCommentResponse} from '../interfaces/github-post-comment-response.interface'
+import {GithubAddLabelsResponse} from '../interfaces/github-add-labels-response.interface'
 
 @Injectable()
 export class GithubService {
   private readonly logger = new Logger(GithubService.name)
 
   constructor(
-    private readonly tool: GithubTool,
     private readonly configService: ConfigService,
+    private readonly httpService: HttpService,
+    private readonly authService: GithubAuthService,
   ) {}
 
-  handleWebhook(
+  public handleWebhook(
     signature: string,
     rawBody: Buffer | undefined,
     payload: GithubWebhookPayload,
@@ -41,12 +55,45 @@ export class GithubService {
     return {status: 'processing'}
   }
 
-  async getIssue(
+  async findIssueByNumber(
     owner: string,
     repo: string,
     issueNumber: number,
   ): Promise<GithubIssue> {
-    return this.tool.findIssueByNumber(owner, repo, issueNumber)
+    const token = await this.getGithubAuthToken()
+    const url = `${GITHUB_API_URL}/repos/${owner}/${repo}/issues/${issueNumber}`
+
+    try {
+      const response = await firstValueFrom<AxiosResponse<GithubIssueResponse>>(
+        this.httpService.get<GithubIssueResponse>(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github.v3+json',
+          },
+        }),
+      )
+
+      const rawIssue = response.data
+      return {
+        id: rawIssue.id,
+        number: rawIssue.number,
+        title: rawIssue.title,
+        body: rawIssue.body,
+        author: rawIssue.user.login,
+        state: rawIssue.state,
+      }
+    } catch (error) {
+      if (error.response?.status === 404) {
+        this.logger.error(`Issue #${issueNumber} not found in ${owner}/${repo}`)
+        throw new NotFoundException(
+          `Issue #${issueNumber} not found in ${owner}/${repo}`,
+        )
+      }
+      this.logger.error(`Failed to fetch issue #${issueNumber}`, error.stack)
+      throw new InternalServerErrorException(
+        'Could not fetch issue from GitHub.',
+      )
+    }
   }
 
   async postComment(
@@ -55,7 +102,47 @@ export class GithubService {
     issueNumber: number,
     body: string,
   ): Promise<GithubPostComment> {
-    return this.tool.postComment(owner, repo, issueNumber, body)
+    const token = await this.getGithubAuthToken()
+    const url = `${GITHUB_API_URL}/repos/${owner}/${repo}/issues/${issueNumber}/comments`
+
+    try {
+      const response = await firstValueFrom<
+        AxiosResponse<GithubPostCommentResponse>
+      >(
+        this.httpService.post<GithubPostCommentResponse>(
+          url,
+          {body},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/vnd.github.v3+json',
+            },
+          },
+        ),
+      )
+
+      const commentUrl: string = response.data.html_url || ''
+
+      this.logger.log(
+        `Successfully posted comment to issue #${issueNumber} in ${owner}/${repo}`,
+      )
+      return {success: true, commentUrl}
+    } catch (error) {
+      if (error.response?.status === 404) {
+        this.logger.error(`Issue #${issueNumber} not found in ${owner}/${repo}`)
+        throw new NotFoundException(
+          `Issue #${issueNumber} not found in ${owner}/${repo}`,
+        )
+      }
+
+      this.logger.error(
+        `Failed to post comment to issue #${issueNumber}`,
+        error.stack,
+      )
+      throw new InternalServerErrorException(
+        'Could not post comment to GitHub.',
+      )
+    }
   }
 
   async addLabels(
@@ -64,7 +151,48 @@ export class GithubService {
     issueNumber: number,
     labels: string[],
   ): Promise<GithubAddLabels> {
-    return this.tool.addLabels(owner, repo, issueNumber, labels)
+    const token = await this.getGithubAuthToken()
+    const url = `${GITHUB_API_URL}/repos/${owner}/${repo}/issues/${issueNumber}/labels`
+
+    try {
+      const response = await firstValueFrom<
+        AxiosResponse<GithubAddLabelsResponse[]>
+      >(
+        this.httpService.post<GithubAddLabelsResponse[]>(
+          url,
+          {labels},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/vnd.github.v3+json',
+            },
+          },
+        ),
+      )
+
+      this.logger.log(
+        `Successfully applied labels to issue #${issueNumber} in ${owner}/${repo}`,
+      )
+      return {success: true, appliedLabels: response.data}
+    } catch (error) {
+      if (error.response?.status === 404) {
+        this.logger.error(`Issue #${issueNumber} not found in ${owner}/${repo}`)
+        throw new NotFoundException(
+          `Issue #${issueNumber} not found in ${owner}/${repo}`,
+        )
+      }
+      this.logger.error(
+        `Failed to apply labels to issue #${issueNumber}`,
+        error.stack,
+      )
+      throw new InternalServerErrorException(
+        'Could not apply labels to GitHub issue.',
+      )
+    }
+  }
+
+  private async getGithubAuthToken(): Promise<string> {
+    return await this.authService.getInstallationToken()
   }
 
   private verifySignature(
@@ -79,9 +207,7 @@ export class GithubService {
       throw new BadRequestException('Missing signature')
     }
 
-    const secret =
-      this.configService.get<string>('GITHUB_WEBHOOK_SECRET') ||
-      '1234a55e-6bc7-123d-778d-4a8e66e4993e'
+    const secret = this.configService.get<string>('GITHUB_WEBHOOK_SECRET')!
 
     const hmac = crypto.createHmac('sha256', secret)
     const digest = `sha256=${hmac.update(payload).digest('hex')}`

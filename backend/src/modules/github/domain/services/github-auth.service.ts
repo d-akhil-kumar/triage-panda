@@ -20,12 +20,11 @@ export class GithubAuthService {
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
   ) {
-    this.APP_ID = this.configService.get<string>('github.appId') || '123123'
-    this.INSTALLATION_ID =
-      this.configService.get<string>('github.installationId') || '45345435345'
-    this.PRIVATE_KEY =
-      this.configService.get<string>('github.privateKey') ||
-      '-----BEGIN PRIVATE KEY-----\nADD_KEY_IN_ENV\n-----END PRIVATE KEY-----'
+    this.APP_ID = this.configService.get<string>('github.appId')!
+    this.INSTALLATION_ID = this.configService.get<string>(
+      'github.installationId',
+    )!
+    this.PRIVATE_KEY = this.configService.get<string>('github.privateKey')!
   }
 
   public async getInstallationToken(): Promise<string> {

@@ -4,6 +4,7 @@ import {GithubAuthService} from './domain/services/github-auth.service'
 import {GithubController} from './application/controllers/github.controller'
 import {GithubTool} from './domain/tools/github.tool'
 import {GithubService} from './domain/services/github.service'
+import {GithubAgentService} from './domain/services/github-agent.service'
 
 @Module({
   imports: [
@@ -13,7 +14,7 @@ import {GithubService} from './domain/services/github.service'
     }),
   ],
   controllers: [GithubController],
-  providers: [GithubAuthService, GithubTool, GithubService],
+  providers: [GithubAuthService, GithubTool, GithubService, GithubAgentService],
   exports: [],
 })
 export class GithubModule {}
