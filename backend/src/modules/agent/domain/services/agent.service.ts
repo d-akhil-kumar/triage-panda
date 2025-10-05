@@ -7,6 +7,7 @@ import {StateGraph, MessagesAnnotation, END, START} from '@langchain/langgraph'
 import {AgentState, ToolNode} from '@langchain/langgraph/prebuilt'
 import {Runnable} from '@langchain/core/runnables'
 import {AgentResult} from '../interfaces/agent-result.interface'
+import {CallbackHandler} from 'langfuse-langchain'
 
 @Injectable()
 export class AgentService {
@@ -15,8 +16,15 @@ export class AgentService {
   private static readonly DEFAULT_TEMPERATURE = 0.2
   private static readonly MAX_MESSAGE_COUNT = 10
   private static readonly MAX_RECURSION_LIMIT = 10
+  private langfuseHandler: CallbackHandler
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) {
+    this.langfuseHandler = new CallbackHandler({
+      secretKey: this.configService.get<string>('langfuse.secretKey')!,
+      publicKey: this.configService.get<string>('langfuse.publicKey')!,
+      baseUrl: this.configService.get<string>('langfuse.host')!,
+    })
+  }
 
   public async invoke(
     tools: DynamicStructuredTool[],
@@ -27,7 +35,10 @@ export class AgentService {
 
     const finalState: typeof MessagesAnnotation.State = await graph.invoke(
       {messages},
-      {recursionLimit: AgentService.MAX_RECURSION_LIMIT},
+      {
+        recursionLimit: AgentService.MAX_RECURSION_LIMIT,
+        callbacks: [this.langfuseHandler],
+      },
     )
 
     const lastMessage = finalState.messages[finalState.messages.length - 1]
