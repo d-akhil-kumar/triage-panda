@@ -12,6 +12,7 @@ This agent uses a stateful, cyclical workflow to perform its tasks. When a new i
     - It analyzes this content to decide on appropriate labels and a summary comment.
     - Finally, it uses the `add_github_labels` and `post_github_comment` tools to apply its analysis back to GitHub.
 3.  **AI-Powered Decisions:** Uses Google's Gemini model to reason about the issue and decide which tools to use at each step.
+4.  **Full Observability:** Integrated with Langfuse to provide detailed, step-by-step tracing of the agent's entire thought process.
 
 ---
 
@@ -21,7 +22,7 @@ This agent uses a stateful, cyclical workflow to perform its tasks. When a new i
 - **Language:** [TypeScript](https://www.typescriptlang.org/)
 - **AI Orchestration:** [LangChain.js](https://js.langchain.com/) & [LangGraph](https://js.langchain.com/docs/langgraph/)
 - **LLM Provider:** [Google Gemini](https://ai.google.dev/)
-- **Observability:** [Langfuse](https://langfuse.com/) (Next Step)
+- **Observability:** [Langfuse](https://langfuse.com/) (Self-Hosted)
 
 ---
 
@@ -53,7 +54,7 @@ The agent's logic is modeled as a stateful graph that allows it to think, act, a
 
 ## 🚀 Prerequisites
 
-Before running this application, you need to configure a GitHub App and ngrok to handle webhooks.
+Before running this application, you need to configure a GitHub App, ngrok, and a local Langfuse instance.
 
 ### 1. GitHub App Setup
 
@@ -93,13 +94,29 @@ This agent interacts with GitHub via a GitHub App, which provides a secure way t
 
 ### 2. ngrok Setup
 
-`ngrok` exposes your local server to the internet so it can receive GitHub webhooks.
+`ngrok` exposes your local server to the internet to receive GitHub webhooks.
 
 1.  **Create a Free Account:** Sign up at [https://dashboard.ngrok.com/signup](https://dashboard.ngrok.com/signup).
 2.  **Install Your Authtoken:** Follow the instructions on your ngrok dashboard. **It's a one-time command** you run on your machine:
     ```bash
     npx ngrok config add-authtoken <YOUR_AUTHTOKEN>
     ```
+
+### 3. Langfuse Setup (Local Docker)
+
+We'll run Langfuse locally using Docker to trace our agent's behavior.
+
+1.  **Prerequisite:** Ensure you have **Docker** and **Docker Compose** installed.
+2.  **Clone Langfuse:**
+    ```bash
+    git clone [https://github.com/langfuse/langfuse.git](https://github.com/langfuse/langfuse.git)
+    ```
+3.  **Run Langfuse:**
+    ```bash
+    cd langfuse
+    docker compose up -d
+    ```
+4.  **Access the UI:** Open [http://localhost:3000](http://localhost:3000) in your browser. Sign up for a local account, create a new project, and navigate to **Project Settings > API Keys** to get your local keys.
 
 ---
 
@@ -128,20 +145,30 @@ This agent interacts with GitHub via a GitHub App, which provides a secure way t
 
     # Google Gemini API Key
     GOOGLE_API_KEY="your_google_api_key_here"
+    
+    # Langfuse Credentials (for local Docker instance)
+    LANGFUSE_PUBLIC_KEY="pk-lf-..." # Your LOCAL public key
+    LANGFUSE_SECRET_KEY="sk-lf-..." # Your LOCAL secret key
+    LANGFUSE_HOST="http://localhost:3000"
     ```
 
 ---
 
 ## 🚀 Running the Application
 
-1.  **Start the NestJS Server:**
+1.  **Start Langfuse:**
+    Make sure your Langfuse Docker containers are running. If not, navigate to the `langfuse` directory and run:
+    ```bash
+    docker compose up -d
+    ```
 
+2.  **Start the NestJS Server:**
     ```bash
     cd backend
     npm run start:dev
     ```
 
-2.  **Start ngrok:**
+3.  **Start ngrok:**
     In a **new terminal window**, expose your local port (default is 3000):
 
     ```bash
@@ -152,7 +179,7 @@ This agent interacts with GitHub via a GitHub App, which provides a secure way t
 
     Copy the `https` forwarding URL provided by ngrok.
 
-3.  **Update the Webhook URL:**
+4.  **Update the Webhook URL:**
     - Go back to your GitHub App's "General" settings.
     - In the "Webhook URL" field, paste your `ngrok` forwarding URL and append `/webhooks/github` to it.
     - **Example:** `https://random-string.ngrok-free.app/webhooks/github`
@@ -162,13 +189,16 @@ This agent interacts with GitHub via a GitHub App, which provides a secure way t
 
 ## ✅ Testing the Workflow
 
-Your application is now live. To test it, go to the repository where you installed the GitHub App and create a new issue. Check your running NestJS application's console logs to see the agent spring into action!
+Your application is now live. To test it, go to the repository where you installed the GitHub App and create a new issue.
+
+-   Check your running NestJS application's console logs to see the agent's activity.
+-   Open your local Langfuse dashboard at [http://localhost:3000](http://localhost:3000) to see a detailed, step-by-step trace of the agent's entire thought process.
 
 ## 🔮 Future Roadmap
 
 This project is designed to be extensible. Future enhancements will include:
 
-- **Integrate Langfuse:** Add comprehensive tracing and observability to visualize the agent's behavior.
+
 - **Clarification Loops:** Enable the agent to ask for more information on vague issues.
 - **Self-Correction:** Add logic to handle tool failures or unexpected outcomes gracefully.
 - **Code Owner Suggestion:** Analyze issue content to suggest the best team member for the assignment.
