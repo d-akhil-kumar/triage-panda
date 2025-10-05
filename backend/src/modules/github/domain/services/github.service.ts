@@ -322,7 +322,7 @@ export class GithubService {
       throw new BadRequestException('Missing signature')
     }
 
-    const secret = this.configService.get<string>('GITHUB_WEBHOOK_SECRET')!
+    const secret = this.configService.get<string>('github.webhookSecret')!
 
     const hmac = crypto.createHmac('sha256', secret)
     const digest = `sha256=${hmac.update(payload).digest('hex')}`
